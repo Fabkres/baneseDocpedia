@@ -13,7 +13,7 @@ sentence-transformers
 fastapi 
 uvicorn
 python-multipart
-vercel-python
 python-docx
 nltk
 requests
+mangum
