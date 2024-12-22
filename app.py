@@ -47,6 +47,10 @@ def get_conversation_chain(vectorstore):
     )
     return conversation_chain
 
+@app.get("/")
+async def root():
+    return {"message": "Bem-vindo ao DocpedIA!"}
+
 # Endpoint para fazer upload de arquivos e processar palavras-chave
 @app.post("/upload_with_keywords/")
 async def upload_files_with_keywords(files: List[UploadFile]):
