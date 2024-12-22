@@ -1,4 +1,4 @@
-from keywords import extract_keywords
+from api.keywords import extract_keywords
 import re
 from collections import defaultdict
 
