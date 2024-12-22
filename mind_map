@@ -1,0 +1,14 @@
+// Mapa Mental
+digraph {
+	root [label="Mapa Mental"]
+	empresa [label=empresa]
+	root -> empresa
+	"construção" [label="construção"]
+	root -> "construção"
+	impactos [label=impactos]
+	root -> impactos
+	"áreas" [label="áreas"]
+	root -> "áreas"
+	"número" [label="número"]
+	root -> "número"
+}

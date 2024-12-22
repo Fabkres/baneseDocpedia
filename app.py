@@ -1,130 +1,141 @@
-import streamlit as st
-from dotenv import load_dotenv
-from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings, HuggingFaceInstructEmbeddings
-from langchain.vectorstores import FAISS
+from fastapi import FastAPI, UploadFile, Form, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
+import threading
+import uuid
+from mangum import Mangum
+from file_processing import get_combined_text, get_text_chunks, get_vectorstore
+from keywords import extract_keywords
+from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
-from htmlTemplates import css, bot_template, user_template
-from langchain.llms import HuggingFaceHub
+from keywords import extract_keywords, search_youtube_videos
+from MindMap import generate_mind_map_structure, export_mind_map_to_json
 
+# Cria a aplicação FastAPI
+app = FastAPI()
 
-# Função para obter o texto dos PDFs
-def get_pdf_text(pdf_docs):
-    text = ""
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-    return text
+# Adiciona middleware para CORS (se necessário para front-end)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+# Estrutura de dados para armazenar as sessões
+sessions = {}
+lock = threading.Lock()
 
-# Função para dividir o texto em partes menores
-def get_text_chunks(text):
-    text_splitter = CharacterTextSplitter(
-        separator="\n",
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-    chunks = text_splitter.split_text(text)
-    return chunks
-
-
-# Função para criar um armazém vetorial
-def get_vectorstore(text_chunks):
-    embeddings = OpenAIEmbeddings()
-    # embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
-    vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
-    return vectorstore
-
+# Modelo para entrada de dados da API
+class QuestionRequest(BaseModel):
+    session_id: str
+    question: str
 
 # Função para criar a cadeia de conversa
 def get_conversation_chain(vectorstore):
-    llm = ChatOpenAI(temperature=0)  # LLM com baixa temperatura para respostas mais precisas
+    llm = ChatOpenAI(temperature=0)
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True
     )
-    
-    # Cadeia com recuperação contextual habilitada
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=vectorstore.as_retriever(search_type="similarity", search_kwargs={"k":3}),
+        retriever=vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3}),
         memory=memory
     )
     return conversation_chain
 
+# Endpoint para fazer upload de arquivos e processar palavras-chave
+@app.post("/upload_with_keywords/")
+async def upload_files_with_keywords(files: List[UploadFile]):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
+    
+    documents_keywords = {}
+    youtube_results = {}
 
+    for file in files:
+        if file.filename.endswith(('.pdf', '.docx', '.txt')):
+            raw_text = get_combined_text([file])
+            keywords = extract_keywords(raw_text)
+            documents_keywords[file.filename] = keywords
 
-# Função para verificar palavras-chave no input do usuário
-def check_keywords(user_input):
-    keywords = ["meus documentos", "nos meus arquivos", "arquivos enviados", "documentos"]
-    return any(keyword in user_input.lower() for keyword in keywords)
-
-
-# Função para lidar com o input do usuário
-def handle_userinput(user_question):
-    if st.session_state.conversation:
-        # Verificar se palavras-chave estão presentes
-        if check_keywords(user_question):
-            response = st.session_state.conversation({
-                'question': user_question,
-                'context': st.session_state.processed_documents
-            })
+            # Buscar vídeos no YouTube para as palavras-chave
+            youtube_results[file.filename] = search_youtube_videos(keywords)
         else:
-            response = st.session_state.conversation({'question': user_question})
-
-        # Atualizar histórico de conversas
-        st.session_state.chat_history = response['chat_history']
-
-        for i, message in enumerate(st.session_state.chat_history):
-            if i % 2 == 0:
-                st.write(user_template.replace(
-                    "{{MSG}}", message.content), unsafe_allow_html=True)
-            else:
-                st.write(bot_template.replace(
-                    "{{MSG}}", message.content), unsafe_allow_html=True)
-    else:
-        st.warning("Por favor, processe os documentos antes de fazer perguntas.")
+            raise HTTPException(status_code=400, detail=f"Unsupported file format: {file.filename}")
+    
+    return {
+        "documents_keywords": documents_keywords,
+        "youtube_results": youtube_results,
+    }
 
 
-# Função principal da aplicação
-def main():
-    load_dotenv()
-    st.set_page_config(page_title="Chat with multiple PDFs",
-                       page_icon=":books:")
-    st.write(css, unsafe_allow_html=True)
+# Endpoint para fazer upload de arquivos e criar uma nova sessão
+@app.post("/upload/")
+async def upload_files(files: List[UploadFile]):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
 
-    if "conversation" not in st.session_state:
-        st.session_state.conversation = None
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = None
+    raw_text = get_combined_text(files)
+    text_chunks = get_text_chunks(raw_text)
+    vectorstore = get_vectorstore(text_chunks)
+    conversation_chain = get_conversation_chain(vectorstore)
+    session_id = str(uuid.uuid4())
+    
+    with lock:
+        sessions[session_id] = {"conversation": conversation_chain}
 
-    st.header("Chat with multiple PDFs :books:")
-    user_question = st.text_input("Ask a question about your documents:")
-    if user_question:
-        handle_userinput(user_question)
+    return {"session_id": session_id}
 
-    with st.sidebar:
-        st.subheader("Your documents")
-        pdf_docs = st.file_uploader(
-            "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
-        if st.button("Process"):
-            with st.spinner("Processing"):
-                # Obter o texto dos PDFs
-                raw_text = get_pdf_text(pdf_docs)
+# Endpoint para enviar perguntas
+@app.post("/ask/")
+async def ask_question(request: QuestionRequest):
+    session_id = request.session_id
+    question = request.question
 
-                # Dividir o texto em partes menores
-                text_chunks = get_text_chunks(raw_text)
+    with lock:
+        session = sessions.get(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
 
-                # Criar o armazém vetorial
-                vectorstore = get_vectorstore(text_chunks)
+    conversation_chain = session["conversation"]
+    response = conversation_chain({"question": question})
 
-                # Criar a cadeia de conversa
-                st.session_state.conversation = get_conversation_chain(vectorstore)
+    return {
+        "response": response["answer"],
+        "chat_history": response["chat_history"]
+    }
+@app.post("/generate_mind_map/")
+async def generate_mind_map(files: List[UploadFile]):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
+    
+    # Combina texto dos arquivos
+    raw_text = get_combined_text(files)
+    
+    # Gera o mapa mental
+    mind_map = generate_mind_map_structure(raw_text)
+    
+    # Exporta o mapa mental como JSON (opcional)
+    # export_mind_map_to_json(mind_map, output_file="mind_map.json")
+    
+    return mind_map
 
 
-if __name__ == '__main__':
-    main()
+# Endpoint para sair do chat e apagar o contexto
+@app.post("/exit/")
+async def exit_chat(request: QuestionRequest):
+    session_id = request.session_id
+
+    with lock:
+        if session_id in sessions:
+            del sessions[session_id]
+            return {"message": "Session closed and context cleared."}
+        else:
+            raise HTTPException(status_code=404, detail="Session not found.")
+
+
+handler = Mangum(app)
