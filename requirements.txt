@@ -10,7 +10,7 @@ langchain-community
 huggingface-hub
 InstructorEmbedding
 sentence-transformers
-fastapi 
+fastapi
 uvicorn
 python-multipart
 python-docx
