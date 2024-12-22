@@ -5,13 +5,13 @@ from typing import List
 import threading
 import uuid
 from mangum import Mangum
-from api.file_processing import get_combined_text, get_text_chunks, get_vectorstore
-from api.keywords import extract_keywords
+from app.file_processing import get_combined_text, get_text_chunks, get_vectorstore
+from app.keywords import extract_keywords
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
-from api.keywords import extract_keywords, search_youtube_videos
-from api.MindMap import generate_mind_map_structure, export_mind_map_to_json
+from app.keywords import extract_keywords, search_youtube_videos
+from app.MindMap import generate_mind_map_structure, export_mind_map_to_json
 
 # Cria a aplicação FastAPI
 app = FastAPI()
