@@ -5,7 +5,7 @@ from typing import List
 import threading
 import uuid
 from mangum import Mangum
-from file_processing import get_combined_text, get_text_chunks, get_vectorstore
+from file_processing import get_text_chunks, get_vectorstore
 from keywords import extract_keywords
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
@@ -13,6 +13,8 @@ from langchain.memory import ConversationBufferMemory
 from keywords import extract_keywords, search_youtube_videos
 from MindMap import generate_mind_map_structure, export_mind_map_to_json
 from feedback_routes import feedback_router  # Importa o feedback router
+from docling.document_converter import DocumentConverter  # Importa o DocumentConverter
+import os
 
 # Cria a aplicação FastAPI
 app = FastAPI()
@@ -52,46 +54,41 @@ def get_conversation_chain(vectorstore):
 async def root():
     return {"message": "Bem-vindo ao DocpedIA!"}
 
-# Endpoint para fazer upload de arquivos e processar palavras-chave
-@app.post("/upload_with_keywords/")
-async def upload_files_with_keywords(files: List[UploadFile]):
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded.")
-    
-    documents_keywords = {}
-    youtube_results = {}
-
-    for file in files:
-        if file.filename.endswith(('.pdf', '.docx', '.txt')):
-            raw_text = get_combined_text([file])
-            keywords = extract_keywords(raw_text)
-            documents_keywords[file.filename] = keywords
-
-            # Buscar vídeos no YouTube para as palavras-chave
-            youtube_results[file.filename] = search_youtube_videos(keywords)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported file format: {file.filename}")
-    
-    return {
-        "documents_keywords": documents_keywords,
-        "youtube_results": youtube_results,
-    }
-
-
 # Endpoint para fazer upload de arquivos e criar uma nova sessão
+
 @app.post("/upload/")
 async def upload_files(files: List[UploadFile]):
     if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded.")
+        raise HTTPException(status_code=400, detail="Nenhum upload feito.")
 
-    raw_text = get_combined_text(files)
+    # Instancia o conversor do docling
+    converter = DocumentConverter()
+
+    raw_text = ""
+    for file in files:
+        # Salva o arquivo carregado temporariamente
+        file_content = await file.read()  # Lê o conteúdo do arquivo
+        temp_filename = f"temp_{file.filename}"
+
+        with open(temp_filename, "wb") as f:
+            f.write(file_content)  # Salva o arquivo temporariamente no sistema
+
+        try:
+            result = converter.convert(temp_filename)
+            raw_text += result.document.export_to_markdown()
+        finally:
+            os.remove(temp_filename)
+
+    # Processa o texto convertido (se necessário)
     text_chunks = get_text_chunks(raw_text)
     vectorstore = get_vectorstore(text_chunks)
     conversation_chain = get_conversation_chain(vectorstore)
     session_id = str(uuid.uuid4())
-    
-    with lock:
-        sessions[session_id] = {"conversation": conversation_chain}
+
+    # Armazena a sessão criada
+    sessions[session_id] = {"conversation": conversation_chain}
+        # return {"session_id": session_id, "formatado":{result.document.export_to_markdown()}}
+
 
     return {"session_id": session_id}
 
@@ -114,21 +111,69 @@ async def ask_question(request: QuestionRequest):
         "chat_history": response["chat_history"]
     }
 
-@app.post("/generate_mind_map/")
+
+
+@app.post("/generate_mind_map/") 
 async def generate_mind_map(files: List[UploadFile]):
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded.")
     
-    # Combina texto dos arquivos
-    raw_text = get_combined_text(files)
+    # Instancia o conversor do docling
+    converter = DocumentConverter()
     
+    raw_text = ""
+    for file in files:
+        if file.filename.endswith(('.pdf', '.docx', '.txt')):
+            # Converte o arquivo para Markdown usando o DocumentConverter
+            file_content = await file.read()  # Lê o conteúdo do arquivo
+            with open(f"temp_{file.filename}", "wb") as f:
+                f.write(file_content)
+
+            # Converte o documento para Markdown
+            result = converter.convert(f"temp_{file.filename}")
+            raw_text += result.document.export_to_markdown()
+
     # Gera o mapa mental
     mind_map = generate_mind_map_structure(raw_text)
     
-    # Exporta o mapa mental como JSON (opcional)
-    # export_mind_map_to_json(mind_map, output_file="mind_map.json")
-    
     return mind_map
+
+# Endpoint para fazer upload de arquivos e processar palavras-chave
+@app.post("/upload_with_keywords/")
+async def upload_files_with_keywords(files: List[UploadFile]):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded.")
+    
+    documents_keywords = {}
+    youtube_results = {}
+
+    # Instancia o conversor do docling
+    converter = DocumentConverter()
+
+    for file in files:
+        if file.filename.endswith(('.pdf', '.docx', '.txt')):
+            # Converte o arquivo para Markdown usando o DocumentConverter
+            file_content = await file.read()  # Lê o conteúdo do arquivo
+            with open(f"temp_{file.filename}", "wb") as f:
+                f.write(file_content)
+
+            # Converte o documento para Markdown
+            result = converter.convert(f"temp_{file.filename}")
+            markdown_content = result.document.export_to_markdown()
+
+            # Extraí as palavras-chave do conteúdo markdown
+            keywords = extract_keywords(markdown_content)
+            documents_keywords[file.filename] = keywords
+
+            # Buscar vídeos no YouTube para as palavras-chave
+            youtube_results[file.filename] = search_youtube_videos(keywords)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported file format: {file.filename}")
+    
+    return {
+        "documents_keywords": documents_keywords,
+        "youtube_results": youtube_results,
+    }
 
 
 # Endpoint para sair do chat e apagar o contexto

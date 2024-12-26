@@ -1,0 +1,100 @@
+[
+    {
+        "id": "1",
+        "document_id": "2132wqeqweqw1321",
+        "conversation_id": "2132wqeqweqw1321",
+        "feedback": false,
+        "timestamp": "2024-12-23T13:10:53.836486"
+    },
+    {
+        "id": "2",
+        "document_id": "1734960897280",
+        "conversation_id": "1734960897280",
+        "feedback": false,
+        "timestamp": "2024-12-23T14:01:12.986288"
+    },
+    {
+        "id": "3",
+        "document_id": "e1c52c8c-b9a0-4fd6-a17c-09c3b9b603da",
+        "conversation_id": "1734960897280",
+        "feedback": true,
+        "timestamp": "2024-12-23T14:12:16.770253"
+    },
+    {
+        "id": "4",
+        "document_id": "e1c52c8c-b9a0-4fd6-a17c-09c3b9b603da",
+        "conversation_id": "1734960897280",
+        "feedback": true,
+        "timestamp": "2024-12-23T14:12:21.965916"
+    },
+    {
+        "id": "5",
+        "document_id": "e1c52c8c-b9a0-4fd6-a17c-09c3b9b603da",
+        "conversation_id": "1734960897280",
+        "feedback": false,
+        "timestamp": "2024-12-23T14:12:39.786271"
+    },
+    {
+        "id": "6",
+        "document_id": "1734968874909",
+        "conversation_id": "864bec00-e361-4be7-91b8-e2e018719b73",
+        "feedback": true,
+        "timestamp": "2024-12-23T15:47:58.914623"
+    },
+    {
+        "id": "7",
+        "document_id": "1734968874909",
+        "conversation_id": "864bec00-e361-4be7-91b8-e2e018719b73",
+        "feedback": false,
+        "timestamp": "2024-12-23T15:48:24.234652"
+    },
+    {
+        "id": "8",
+        "document_id": "1734975211682",
+        "conversation_id": "d9fa8488-3cd1-4210-af1e-a8e98c56c737",
+        "feedback": true,
+        "timestamp": "2024-12-23T17:33:49.585963"
+    },
+    {
+        "id": "9",
+        "document_id": "1734975222832",
+        "conversation_id": "d9fa8488-3cd1-4210-af1e-a8e98c56c737",
+        "feedback": true,
+        "timestamp": "2024-12-23T17:34:05.567066"
+    },
+    {
+        "id": "10",
+        "document_id": "1734978018236",
+        "conversation_id": "19f8580b-35bf-48dc-be8e-0c82cdc06499",
+        "feedback": true,
+        "timestamp": "2024-12-23T18:20:23.194923"
+    },
+    {
+        "id": "11",
+        "document_id": "1734978031912",
+        "conversation_id": "19f8580b-35bf-48dc-be8e-0c82cdc06499",
+        "feedback": true,
+        "timestamp": "2024-12-23T18:20:37.069853"
+    },
+    {
+        "id": "12",
+        "document_id": "1734980991516",
+        "conversation_id": "869d0e54-1478-453d-8571-b876a12ceb1a",
+        "feedback": true,
+        "timestamp": "2024-12-23T19:10:39.774974"
+    },
+    {
+        "id": "13",
+        "document_id": "1734981051967",
+        "conversation_id": "869d0e54-1478-453d-8571-b876a12ceb1a",
+        "feedback": false,
+        "timestamp": "2024-12-23T19:10:56.569320"
+    },
+    {
+        "id": "14",
+        "document_id": "1734989621810",
+        "conversation_id": "3b83553f-b724-422e-800b-03cf53f652ec",
+        "feedback": true,
+        "timestamp": "2024-12-23T21:33:51.077387"
+    }
+]

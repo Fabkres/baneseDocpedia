@@ -17,3 +17,6 @@ python-docx
 nltk
 requests
 mangum
+pymongo
+pydantic
+docling
